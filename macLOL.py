@@ -115,6 +115,41 @@ def create_moduli(max_val):
     return moduli
 
 class MemPool(object):
+    """
+    >>> M = MemPool(10)
+    >>> a = M.macLOL(2)
+    >>> a[0], a[1] = 'a', 'a'
+    >>> b = M.macLOL(3)
+    >>> b[0], b[1], b[2] = 'b', 'b', 'b'
+    >>> c = M.macLOL(4)
+    >>> c[0], c[1], c[2], c[3] = 'c', 'c', 'c', 'c'
+    >>> d = M.macLOL(1)
+    >>> d[0] = 'd'
+    >>> print M
+    finger: 3564097275952
+     0: a  1: a  2: b  3: b  4: b  5: c  6: c  7: c  8: c  9: d 
+    >>> b.freeLOL()
+    >>> d.freeLOL()
+    >>> print M
+    finger: 3564097275952
+     0: a  1: a |2: b||3: b||4: b| 5: c  6: c  7: c  8: c |9: d|
+    >>> e = M.macLOL(4)
+    >>> e[0], e[1], e[2], e[3] = 'e', 'e', 'e', 'e'
+    >>> print M
+    finger: 3564097275952
+     0: a  1: a  2: e  3: e  4: e  5: c  6: c  7: c  8: c  9: e 
+    >>> ea = e.macLOL(2)
+    >>> ea[0], ea[1] = 'EA', 'EA'
+    >>> eb = e.macLOL(2)
+    >>> eb[0], eb[1] = 'EB', 'EB'
+    >>> print M
+    finger: 3564097275952
+     0:  a  1:  a  2: EA  3: EA  4: EB  5:  c  6:  c  7:  c  8:  c  9: EB 
+    >>> print e
+    finger: 5710520941554
+     0: EA  1: EA  2: EB  3: EB 
+
+    """
     def __init__(self, size, arena=None, finger=None):
         self.size = size
         self.used = [False for _ in xrange(self.size)]
@@ -217,36 +252,4 @@ class MemPool(object):
             for i in xrange(self.size):
                 self.arena.used[self.finger % self.moduli[i]] = False
             self.arena.num_used -= self.size
-
-
-if __name__ == '__main__':
-    m = MemPool(10)
-    ma = m.macLOL(2)
-#   for i in range(len(ma)):
-#       ma[i] = i + 1
-
-    mb = m.macLOL(5)
-    for i in range(len(mb)):
-        mb[i] = (i + 1) * 10
-
-    mc = m.macLOL(3)
-    for i in range(len(mc)):
-        mc[i] = (i + 1) * 100
-
-    print m
-    mb.freeLOL()
-
-    md = m.macLOL(1)
-    md[0] = 1000
-
-    print m
-
-    me = m.macLOL(4)
-    for i in range(len(me)):
-        me[i] = (i + 1) * 10000
-
-    print me
-    me.freeLOL()
-    print me
-    print m
 
