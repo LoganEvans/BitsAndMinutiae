@@ -1,3 +1,14 @@
+"""macLOL.py is a proof-of-concept memory allocator with no
+external fragmentation. It achieves this by changing the function
+that determines the location of an arbitrary block within a malloc'd
+region. This memory allocator will specify a "finger" value. To
+access the x'th arbitrary value in a malloc'd region, the system
+takes the finger and mods it by the x'th value in a table of relatively
+prime values. This uses the Chinese Remainder Theorem to guarantee
+that the finger has the apropriate values.
+
+"""
+
 import numpy as np
 import random
 
