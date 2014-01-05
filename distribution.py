@@ -121,21 +121,62 @@ def get_index_cdf(func, container, target_cdf):
     return -1
 
 
+class ProposalDists(object):
+    def __init__(self, n, distributions):
+        # Let's make it easy and set the priors as even...
+        self.n = n
+        self.dists = distributions
+        self.dists[0].generate(
+                math.ceil(self.n / float(len(distributions))))
+        for dist in self.dists[1:]:
+            dist.generate(math.floor(self.n / float(len(distributions))))
+        # self.dists and self.cdf are parallel arrays.
+        self._correct_distributions_cdf()
+
+    def _correct_distributions_cdf(self):
+        self.cdf = []
+        cdf = 0
+        for dist in self.dists:
+            cdf += dist.count() / float(n)
+            self.cdf.append(cdf)
+
+
+
 def evict(probs_cdf, candidate_dists, n=1):
-    slice_index = get_index_cdf(lambda x: x[0], probs_cdf, np.random.uniform(0, 1))
-    lower, upper = probs_cdf[slice_index][1], probs_cdf[slice_index][2]
-    evict_probs = []
-    count_in_interval = 0
-    to_add = 0
-    for cdf, dist in candidate_dists:
-        to_add += dist.count_interval(lower, upper)
-        evict_probs.append(to_add)
-    evict_probs = [val / float(to_add) for val in evict_probs]
-    evict_choice = get_index_cdf(lambda x: x, evict_probs, np.random.uniform(0, 1))
-    candidate_dists[evict_choice][1].remove(1)
+    for _ in xrange(n):
+        slice_index = get_index_cdf(
+                lambda x: x[0], probs_cdf, np.random.uniform(0, 1))
+        lower, upper = probs_cdf[slice_index][1], probs_cdf[slice_index][2]
+        evict_probs = []
+        count_in_interval = 0
+        to_add = 0
+        for cdf, dist in candidate_dists:
+            to_add += dist.count_interval(lower, upper)
+            evict_probs.append(to_add)
+        evict_probs = [val / float(to_add) for val in evict_probs]
+        evict_choice = get_index_cdf(
+                lambda x: x, evict_probs, np.random.uniform(0, 1))
+        candidate_dists[evict_choice][1].remove(1)
+
+    count = reduce(lambda x, y: x[1].count() + y[1].count(), candidate_dists)
+
+    cdf = 0
+    for idx in range(len(candidate_dists)):
+        to_add = candidate_dists[idx][1].count() / float(count)
+        cdf += to_add
+        candidate_dists[idx][0] = cdf
+
+
+def generate_from_priors(candidate_dists, n=1):
+    for _ in xrange(n):
+        choice = get_index_cdf(
+                lambda x: x[0], candidate_dists, np.random.uniform(0, 1))
+        candidate_dists[choice][1].generate(1)
 
 
 if __name__ == '__main__':
+    pylab.ion()
+
     target_dist = TruncatedNormalSim(0, 1, -5, 5)
     target_dist.generate(100)
 
@@ -149,12 +190,14 @@ if __name__ == '__main__':
         dist[1].generate(int(n * (dist[0] - cdf)))
         cdf = dist[0]
 
-#   histogram_dists(candidate_dists)
-    epoch = 1
-    last_draw = 0
-    probs_cdf = get_probs_cdf(target_dist, candidate_dists)
-    for _ in range(20):
-        evict(probs_cdf, candidate_dists)
+    for _ in xrange(10):
+        probs_cdf = get_probs_cdf(target_dist, candidate_dists)
+        n = 2000
+        evict(probs_cdf, candidate_dists, n=n)
+        generate_from_priors(candidate_dists, n=n)
+        histogram_dists(candidate_dists)
+        pylab.draw()
+    print candidate_dists
 #   while True:
 #       cur_time = time.time()
 #       if cur_time - last_draw > epoch:
