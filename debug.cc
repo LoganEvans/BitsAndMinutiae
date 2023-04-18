@@ -1,8 +1,17 @@
+#include <atomic>
+#include <cstddef>
+#include <functional>
+#include <map>
+#include <mutex>
+#include <thread>
+
 class Debug {
  public:
-  static int curFuncIndent_;
-  static int curCtorIndent_;
   static bool enabled_;
+
+  static int get_indent(bool enter);
+
+  static int short_tid();
 
   static void enable() { enabled_ = true; }
 
@@ -16,11 +25,7 @@ class Debug {
     va_end(args);
     msg_ = buf;
 
-    if (isFuncMsg()) {
-      myIndent_ = curFuncIndent_++;
-    } else {
-      myIndent_ = curCtorIndent_++;
-    }
+    myIndent_ = get_indent(/*enter=*/true);
 
     if (enabled_) {
       for (int i = 0; i < myIndent_; i++) {
@@ -30,19 +35,21 @@ class Debug {
     }
   }
 
+  Debug(std::function<void()> func) : func_(func) {}
+
   ~Debug() {
     if (enabled_) {
-      for (int i = 0; i < myIndent_; i++) {
-        fprintf(stderr, " ");
+      if (func_) {
+        func_();
+      } else {
+        for (int i = 0; i < myIndent_; i++) {
+          fprintf(stderr, " ");
+        }
+        fprintf(stderr, "< %s%s\n", msg_.c_str(), note_.c_str());
       }
-      fprintf(stderr, "< %s%s\n", msg_.c_str(), note_.c_str());
     }
 
-    if (isFuncMsg()) {
-      curFuncIndent_--;
-    } else {
-      curCtorIndent_--;
-    }
+    get_indent(/*enter=*/false);
   }
 
   void note(const char *fmt, ...) {
@@ -77,10 +84,37 @@ class Debug {
   int myIndent_;
   std::string msg_;
   std::string note_;
+  std::function<void()> func_;
 
   bool isFuncMsg() const { return msg_[msg_.size() - 1] == ')'; }
 };
 
-int Debug::curFuncIndent_ = 0;
-int Debug::curCtorIndent_ = 40;
+// In cc file:
+
 bool Debug::enabled_ = true;
+
+/*static*/
+int Debug::get_indent(bool enter) {
+  thread_local int indent{0};
+  int v = indent;
+  if (enter) {
+    indent++;
+  } else {
+    indent--;
+  }
+  return v;
+}
+
+/*static*/
+int Debug::short_tid() {
+  static std::mutex mu;
+  static std::map<std::thread::id, int> tids;
+
+  std::lock_guard l{mu};
+  auto tid = std::this_thread::get_id();
+  if (!tids.contains(tid)) {
+    tids[tid] = tids.size();
+  }
+
+  return tids[tid];
+}
